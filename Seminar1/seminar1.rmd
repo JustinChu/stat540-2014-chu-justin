@@ -1,0 +1,147 @@
+BIOF 540 Seminar 1
+========================================================
+
+The purpose of this document is to practice using R with the BIOF/STAT 540 seminar 1 tutorial.
+
+Start by loading the data:
+```{r}
+prDat <- read.table("Seminar1/GSE4051_MINI.txt", header = TRUE, row.names = 1)
+str(prDat)
+
+#loading without arguments
+prDatTest <- read.table("Seminar1/GSE4051_MINI.txt")
+str(prDatTest)
+```
+As far as I can tell, in this case there does not seem to be any difference if no arguments are passed. Though I suspect this may not always be the case.
+
+### Exploration of the data:
+How many rows are there?
+```{r}
+nrow(prDat)
+```
+
+How many variables?
+```{r}
+ncol(prDat)
+length(prDat)
+```
+
+overall dimensions
+```{r}
+dim(prDat)
+```
+
+First few observations or the last few or a random sample
+```{r}
+head(prDat)
+tail(prDat)
+prDat[sample(nrow(prDat), 6), ]
+```
+
+What does row correspond to -- different genes or different mice?
+As seen above the genes are the 3 columns (pokemon attacks), and there seems to be information about mice age and treatment (wt or NrlKO). Thus it would seem each row corresponds to different mice.
+
+What are the variable names?
+```{r}
+names(prDat)
+```
+
+What "flavor" is each variable, i.e. numeric, character, factor? Hint: str().
+```{r}
+str(prDat)
+```
+
+Sanity check that each integer between 1 and the number of rows in the dataset occurs exactly once.
+```{r}
+sort(prDat$sample)
+seq_len(nrow(prDat))
+sort(prDat$sample) == seq_len(nrow(prDat))
+all.equal(sort(prDat$sample), seq_len(nrow(prDat)))
+```
+
+For each factor variable, what are the levels?
+```{r}
+str(prDat)
+levels(prDat$devStage)
+levels(prDat$gType)
+```
+
+How many observations do we have for each level of devStage? For gType?
+```{r}
+summary(prDat$devStage)
+summary(prDat$gType)
+```
+
+Perform a cross-tabulation of devStage and gType
+```{r}
+table(prDat$devStage, prDat$gType)
+```
+
+For each quantitative variable, what are the extremes? How about average or median? 
+Extremes:
+```{r}
+min(prDat$crabHammer)
+max(prDat$crabHammer)
+min(prDat$eggBomb)
+max(prDat$eggBomb)
+min(prDat$poisonFang)
+max(prDat$poisonFang)
+```
+
+average or median:
+```{r}
+mean(prDat$crabHammer)
+median(prDat$crabHammer)
+mean(prDat$eggBomb)
+median(prDat$eggBomb)
+mean(prDat$poisonFang)
+median(prDat$poisonFang)
+```
+
+Spread/Summary information:
+```{r}
+range(prDat$crabHammer)
+summary(prDat$crabHammer)
+fivenum(prDat$crabHammer)
+quantile(prDat$crabHammer)
+
+range(prDat$eggBomb)
+summary(prDat$eggBomb)
+fivenum(prDat$eggBomb)
+quantile(prDat$eggBomb)
+
+range(prDat$poisonFang)
+summary(prDat$poisonFang)
+fivenum(prDat$poisonFang)
+quantile(prDat$poisonFang)
+```
+
+
+If you had to take a wild guess, what do you think the intended experimental design was? What actually happened in real life?
+
+Based on the type of columns I would guess that the experiment was to see if Knocking out a gene (Nrl) had any effect on the expression of genes (in real life these would be genes, not pokemon attacks).
+
+### Indexing and subsetting prDat
+
+Create a new data.frame called weeDat only containing observations for which expression of poisonFang is above 7.5.
+```{r}
+weeDat <- subset(prDat, poisonFang > 7.5)
+```
+
+For how many observations poisonFang > 7.5? How do they break down by genotype and developmental stage?
+```{r}
+nrow(weeDat)
+table(weeDat$gType)
+table(weeDat$devStage)
+```
+
+Print the observations with row names "Sample_16" and "Sample_38" to screen, showing only the 3 gene expression variables.
+```{r}
+prDat[c("Sample_16", "Sample_38"), c("crabHammer", "eggBomb", "poisonFang")]
+```
+
+Which samples have expression of eggBomb less than the 0.10 quantile?
+```{r}
+quantileVal <- quantile(prDat$eggBomb, 0.1)
+prDat[prDat$eggBomb < quantileVal, 1]
+```
