@@ -1,0 +1,156 @@
+Stat 540 Seminar 2
+========================================================
+
+The purpose of this document is gain an understanding of probablility distributions.
+
+Start by generating data:
+```{r}
+n <- 10
+B <- 4
+
+set.seed(540) # to obtain deterministic results
+x <- matrix(rnorm(n*B), nrow = n)
+
+#check the data
+str(x)
+head(x)
+```
+
+Jenny's tutorial goes through other methods for generating data but this the nicest R-like way of doing it.
+
+Give that data row and column names
+```{r}
+rownames(x) <- sprintf("obs%02d", 1:n)
+colnames(x) <- sprintf("samp%02d", 1:B)
+x #check what this looks like
+colMeans(x) #fast way compute the means for all the samples
+```
+
+### Exercise: Sample mean vs true mean
+```{r}
+mean(x) #true mean
+mean(colMeans(x)) #sample mean
+```
+
+They seem to be identical. I will try with another seed and n, b value:
+```{r}
+n <- 10
+B <- 4
+set.seed(77) # to obtain deterministic results
+x <- matrix(rnorm(n*B), nrow = n)
+colMeans(x)
+mean(x) #true mean
+mean(colMeans(x)) #sample mean
+```
+
+Same results again. I expected them to be so, given the equal number of elements used to compute each sample mean.
+
+### Exercise: Explore the Weak Law of Large Numbers
+
+Note SEM mean standard error of the mean
+
+```{r}
+B = 1000
+#generate data
+n10 <- colMeans(matrix(rnorm(10*B), nrow = 10))
+n100 <- colMeans(matrix(rnorm(100*B), nrow = 100))
+n1000 <- colMeans(matrix(rnorm(1000*B), nrow = 1000))
+n10000 <- colMeans(matrix(rnorm(10000*B), nrow = 10000))
+
+lawDat <- data.frame( sampSize = c(10,100,1000,10000), trueSEM = 1/sqrt(c(10,100,1000,10000)), obsSEM = c( sd(n10), sd(n100), sd(n1000), sd(n10000)), sampMeanIQR = c(IQR(n10), IQR(n100),IQR(n1000),IQR(n10000)), sampleMeanMad = c(mad(n10),mad(n100),mad(n1000),mad(n10000)))
+
+lawDat
+```
+
+### Exersize: Repeat with alternate distribution
+
+```{r}
+#generate data
+n10 <- colMeans(matrix(rnorm(10*B, sd = 2), nrow = 10))
+n100 <- colMeans(matrix(rnorm(100*B, sd = 2), nrow = 100))
+n1000 <- colMeans(matrix(rnorm(1000*B, sd = 2), nrow = 1000))
+n10000 <- colMeans(matrix(rnorm(10000*B, sd = 2), nrow = 10000))
+
+lawDat <- data.frame( sampSize = c(10,100,1000,10000), trueSEM = 1/sqrt(c(10,100,1000,10000)) * 2, obsSEM = c( sd(n10), sd(n100), sd(n1000), sd(n10000)), sampMeanIQR = c(IQR(n10), IQR(n100),IQR(n1000),IQR(n10000)), sampleMeanMad = c(mad(n10),mad(n100),mad(n1000),mad(n10000)))
+
+lawDat
+```
+
+### Generate a large sample from some normal distribution and explore probabilities with respect to relative frequencies
+
+```{r}
+normSamp <- rnorm(10000)
+#pick a threshold lets say 0.5 sd from the mean
+pnorm(0.5)
+length(normSamp[normSamp <= 0.5])/10000
+```
+
+Pretty close. Lets try another distribution
+
+```{r}
+samp <- rnorm(10000, sd = 2)
+#pick a threshold lets say 0.5 sd from the mean
+pnorm(0.5, sd = 2)
+length(samp[samp <= 0.5])/10000
+```
+
+Lets try a smaller sample size
+
+```{r}
+samp <- rnorm(100, sd = 2)
+#pick a threshold lets say 0.5 sd from the mean
+pnorm(0.5, sd = 2)
+length(samp[samp <= 0.5])/100
+```
+
+It seems to drift away from the true results. Lets try probabilites greater than a threshold.
+
+```{r}
+samp <- rnorm(10000, sd = 2)
+#pick a threshold lets say 1.1 sd from the mean
+pnorm(1.1, sd = 2, lower.tail = FALSE)
+length(samp[samp > 1.1])/10000
+```
+
+Now lets try a interval between 2 thresholds.
+
+```{r}
+samp <- rnorm(10000, sd = 2)
+#pick a threshold lets say -0.5 and 1.1 sd from the mean
+pnorm(1.1, sd = 2) - pnorm(-0.5, sd = 2)
+length(samp[samp <= 1.1 & samp >= -0.5])/10000
+```
+
+Now lets try a interval between 2 thresholds.
+
+
+```{r}
+samp <- rnorm(10000, sd = 2)
+#pick a threshold lets say -0.5 and 1.1 sd from the mean
+pnorm(1.1, sd = 2) - pnorm(-0.5, sd = 2)
+length(samp[samp <= 1.1 & samp >= -0.5])/10000
+```
+
+### Recreation of Jenny's lattice plot with ggplot
+
+```{r}
+library(ggplot2)
+B <- 1000
+n <- round(10^(seq(from = 1, to = 2.5, length = 4)), 0)
+names(n) <- paste0("n", n)
+getSampleMeans <- function(n, B) colMeans(matrix(rnorm(n * B), nrow = n))
+x <- data.frame(sapply(n, getSampleMeans, B))
+jFormula <- as.formula(paste("~", paste(names(n), sep = "", collapse = " + ")))
+xTallSkinny <- stack(x)
+names(xTallSkinny) <- c("x","n")
+xTallSkinny$n <- factor(xTallSkinny$n, levels = colnames(x))
+
+
+plot <- ggplot(xTallSkinny, aes(x, group = n, colour = n)) + geom_density()
+plot <- plot + geom_point( aes(x = x, y = 0, group = n, colour = n), position = "jitter", pch = 1)
+plot
+
+densityplot(~ x, xTallSkinny, xlab = "sample means", groups = n,
+            auto.key = list(x = 0.9, y = 0.9, corner = c(1, 1),
+                            reverse.rows = TRUE))
+```
