@@ -1,7 +1,7 @@
 Stat 540 Seminar 2
 ========================================================
 
-The purpose of this document is gain an understanding of probablility distributions.
+The purpose of this document is gain an understanding of probablility distributions. This document is based on Jenny's version of the seminar [tutorial](http://www.ugrad.stat.ubc.ca/~stat540/seminars/seminar02_playing-with-probability.html).
 
 Start by generating data:
 ```{r}
