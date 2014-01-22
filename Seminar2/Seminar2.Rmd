@@ -135,6 +135,8 @@ length(samp[samp <= 1.1 & samp >= -0.5])/10000
 
 ```{r}
 library(ggplot2)
+library(lattice)
+
 B <- 1000
 n <- round(10^(seq(from = 1, to = 2.5, length = 4)), 0)
 names(n) <- paste0("n", n)
@@ -148,6 +150,7 @@ xTallSkinny$n <- factor(xTallSkinny$n, levels = colnames(x))
 
 plot <- ggplot(xTallSkinny, aes(x, group = n, colour = n)) + geom_density()
 plot <- plot + geom_point( aes(x = x, y = 0, group = n, colour = n), position = "jitter", pch = 1)
+plot <- plot + xlab("Sample Means")
 plot
 
 densityplot(~ x, xTallSkinny, xlab = "sample means", groups = n,
