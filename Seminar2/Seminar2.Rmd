@@ -62,7 +62,7 @@ lawDat <- data.frame( sampSize = c(10,100,1000,10000), trueSEM = 1/sqrt(c(10,100
 lawDat
 ```
 
-### Exersize: Repeat with alternate distribution
+### Exercize: Repeat with alternate distribution
 
 ```{r}
 #generate data
