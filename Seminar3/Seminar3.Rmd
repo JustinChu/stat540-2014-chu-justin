@@ -1,0 +1,169 @@
+Stat 540 Seminar 3
+========================================================
+
+The purpose of this document is to explore and learn ggplot2 plotting functions.
+
+load libraries subsample data:
+```{r}
+library(ggplot2)
+
+prDat <- read.table("../GSE4051_data.tsv")
+prDes <- read.table("../GSE4051_design.tsv", header = TRUE)
+
+set.seed(540) #for consisteny
+
+#sample random genes and reshape
+prDat2 <- t(prDat[sample(1:nrow(prDat), size = 2),])
+genes <- colnames(prDat2)
+prDat2 <- data.frame(sidChar = rownames(prDat2), prDat2, check.names=FALSE) #names for merging
+prDat2 <- merge(prDes,prDat2)
+oDat2 <- with(prDat2,data.frame(sidChar, sidNum, devStage, gType, probeset = factor(rep(genes, each = nrow(prDat2))), geneExp = unlist(prDat2[,genes])))
+```
+
+
+### Stripplots
+
+Then let's plot the expression level of each gene.
+```{r}
+p <- ggplot(oDat2, aes(geneExp, probeset)) + geom_point(position = position_jitter(height = 0.1))
+p
+```
+
+Now let's explore gene expression changes over the course of development.
+```{r}
+p <- p <- ggplot(oDat2, aes(devStage, geneExp)) + geom_point()
+p <- p + facet_wrap(~ probeset)     
+p <- p + aes(color = gType)
+p <- p + stat_summary(fun.y = mean, geom = "point", shape = 4, size = 4)
+p
+```
+
+### Density plots
+
+Lets use density plots to investigate the distribution of gene expression in these 2 genes.
+
+```{r}
+p <- ggplot(oDat2, aes(geneExp, color = gType)) + stat_density(geom = "line", position = "identity") + geom_point(aes(y = 0.05), position = position_jitter(height = 0.005))
+p
+```
+
+### Box plots and violin plots
+
+Lets investigate the distribution of gene expression across developmental stages.
+
+```{r}
+p <- ggplot(oDat2, aes(devStage, geneExp)) + 
+   geom_boxplot()
+p <- p + facet_wrap(~ gType)
+p
+```
+
+Now with a violin plot
+
+```{r}
+p <- ggplot(oDat2, aes(devStage, geneExp)) + 
+   geom_violin()
+p <- p + facet_wrap(~ gType)
+p
+```
+
+### Plot matrix
+
+Sample some data to investigate how to deal with over plotting
+
+```{r}
+#pairDat <- subset(prDat, select = sample(1:ncol(prDat), size = 4))
+```
+
+Plot Data using binhex to show density of the points.
+
+```{r}
+#p <- p <- plotmatrix(pairDat) + stat_binhex()
+#p
+```
+
+### HeatMap in ggplot2
+
+Now lets use ggplot to plot a heatmat to deal with a larger dataset.
+
+Start by sampling 20 genes and shape data for clustering:
+```{r}
+set.seed(540) #for consisteny
+prDat20 <- t(prDat[sample(1:nrow(prDat), size = 20),])
+
+hDat <- as.matrix(prDat20)
+rownames(hDat) <- with(prDes, paste(devStage, gType, sidChar, sep="_"))
+
+# genes <- colnames(prDat20)
+# prDat20 <- data.frame(sidChar = rownames(prDat20), prDat20, check.names=FALSE) #names for merging
+# prDat20 <- merge(prDes,prDat20)
+# hDat20 <- with(prDat20,data.frame(y = paste(devStage, gType, sidChar, sep="_"), x = factor(rep(genes, each = nrow(prDat20))), geneExp = unlist(prDat20[,genes])))
+
+#for dedrogram
+library(ggdendro)
+
+library(reshape2)
+
+#prepare dedrogram clustering
+dd.col <- as.dendrogram(hclust(dist(hDat)))
+col.ord <- order.dendrogram(dd.col)
+
+dd.row <- as.dendrogram(hclust(dist(t(hDat))))
+row.ord <- order.dendrogram(dd.row)
+
+ddata_x <- dendro_data(dd.row)
+ddata_y <- dendro_data(dd.col)
+
+xx <- prDat20[col.ord, row.ord]
+xx_names <- attr(xx, "dimnames")
+df <- as.data.frame(xx)
+colnames(df) <- xx_names[[2]]
+df$gene <- xx_names[[1]]
+df$gene <- with(df, factor(gene, levels=gene, ordered=TRUE))
+
+hDat_gene <- melt(df, id.vars="gene")
+
+```
+
+Plot:
+```{r }
+#for custom pallette
+library(RColorBrewer)
+jBuPuFun <- colorRampPalette(brewer.pal(n = 9, "BuPu"))
+
+#for proper formatting
+library(grid)
+
+p1 <- ggplot(hDat_gene, aes(x=gene, y=variable)) + geom_tile(aes(fill=value))
+p1 <- p1 + theme(axis.text.x=element_text(angle=90, hjust=1))
+p1 <- p1 + scale_fill_gradientn(colours = jBuPuFun(100))
+
+theme_none <- theme(
+  panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.background = element_blank(),
+  axis.title.x = element_text(colour=NA),
+  axis.title.y = element_blank(),
+  axis.text.x = element_blank(),
+  axis.text.y = element_blank(),
+  axis.line = element_blank()
+)
+
+# Dendrogram 1
+p2 <- ggplot(segment(ddata_x)) + geom_segment(aes(x=x, y=y, xend=xend, yend=yend)) + 
+  theme_none + theme(axis.title.x=element_blank()) + coord_flip()
+
+# Dendrogram 2
+p3 <- ggplot(segment(ddata_y)) + geom_segment(aes(x=x, y=y, xend=xend, yend=yend)) + theme_none
+
+grid.newpage()
+print(p1, vp=viewport(0.9, 0.9, x=0.4, y=0.4))
+print(p2, vp=viewport(0.2, 0.81, x=0.9, y=0.46))
+print(p3, vp=viewport(0.665, 0.2, x=0.415, y=0.92))
+```
+
+I'll say that although it is possible to do in ggplot, the combined dendrogram plot should be done in lattice. Heatmaps by themselves can be easily done in ggplot however.
+Method was adapted from: http://stackoverflow.com/questions/6673162/reproducing-lattice-dendrogram-graph-with-ggplot2/6675983#6675983
+
+
+
