@@ -5,7 +5,7 @@ Purpose:
 
 Start by loading data/libraries:
 ```{r}
-library(ggPlot2)
+library(ggplot2)
 library(plyr)
 prDat <- read.table("../GSE4051_data.tsv")
 prDes <- read.table("../GSE4051_design.tsv", header = TRUE)
