@@ -1,7 +1,7 @@
 Stat 540 Seminar 4
 ========================================================
 
-Purpose: 
+Purpose: To explore 2 sample tests for comparing distributions in the context of differential expression.
 
 Start by loading data/libraries:
 ```{r}
@@ -203,10 +203,10 @@ getTime(ddply(sample500Dat, ~ gene, ksTest))), testNum = c(5,10,50,100,500), typ
 timeDat <- rbind(timeTTest, timeWilTest, timeKSTest)
 ```
 
-According to this plot it scales linearly, but it is already reaching >9 seconds for 500 samples for some tests.
-
 Plot the results:
 ```{r}
 p <- ggplot(timeDat, aes(testNum, time, group = type, colour = type)) + geom_line()
 p
 ```
+
+According to this plot it scales linearly, but it is already reaching >8 seconds for 500 samples for some tests.
