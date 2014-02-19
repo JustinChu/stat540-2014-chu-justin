@@ -1,0 +1,212 @@
+Stat 540 Seminar 4
+========================================================
+
+Purpose: 
+
+Start by loading data/libraries:
+```{r}
+library(ggPlot2)
+library(plyr)
+prDat <- read.table("../GSE4051_data.tsv")
+prDes <- read.table("../GSE4051_design.tsv", header = TRUE)
+```
+
+### Editing Inner Function to use t test, Wicoxon Test and KS test
+
+Let's extract 6 genes at random, rather than hardcoded genes:
+```{r}
+set.seed(540)
+keepGenes <- row.names(prDat)[sample(1:nrow(prDat), 6)]
+miniDat <- subset(prDat, rownames(prDat) %in% keepGenes)
+miniDat <- data.frame(gExp = as.vector(t(as.matrix(miniDat))), gene = factor(rep(rownames(miniDat), each = ncol(miniDat)), levels = keepGenes))
+miniDat <- suppressWarnings(data.frame(prDes, miniDat))
+```
+
+Next lets define some functions for running each test
+```{r}
+#for t test
+tTest <- function(z) {
+  zz <- t.test(gExp ~ gType, z)
+  round(c(tStat = zz$statistic, pVal = zz$p.value), 4)
+}
+
+#for Wilcoxon test
+wilTest <- function(z) {
+  #not sure if suppressing warnings is the way to go but the error messages are annoying
+  suppressWarnings(zz <- wilcox.test(gExp ~ gType, z))
+  round(c(wilStat = zz$statistic, pVal = zz$p.value), 4)
+}
+
+#for KS test
+ksTest <- function(z) {
+  suppressWarnings(zz <- ks.test(z[z$gType == "wt", "gExp"], z[z$gType == "NrlKO", "gExp"]))
+  round(c(ksStat = zz$statistic, pVal = zz$p.value), 4)
+}
+
+#for all 3 tests
+allTest <- function(z) {
+  zzT <- t.test(gExp ~ gType, z)
+  suppressWarnings(zzWil <- wilcox.test(gExp ~ gType, z))
+  suppressWarnings(zzKS <- ks.test(z[z$gType == "wt", "gExp"], z[z$gType == "NrlKO", "gExp"]))
+  round(c(pVal_T = zzT$p.value, pVal_Wil = zzWil$p.value, pVal_KS = zzKS$p.value), 4)
+}
+```
+
+Test out the functions:
+```{r}
+ddply(miniDat, ~ gene, tTest)
+ddply(miniDat, ~ gene, wilTest)
+ddply(miniDat, ~ gene, ksTest)
+ddply(miniDat, ~ gene, allTest)
+```
+
+### Matrix of p-values and genes for 100 sampled genes
+
+Start by sampling 100 genes:
+```{r}
+geneSample100 <- row.names(prDat)[sample(1:nrow(prDat), 100)]
+
+sample100Dat <- subset(prDat, rownames(prDat) %in% geneSample100)
+
+sample100Dat <- data.frame(gExp = as.vector(t(as.matrix(sample100Dat))), gene = factor(rep(rownames(sample100Dat), each = ncol(sample100Dat)), levels = geneSample100))
+
+sample100Dat <- suppressWarnings(data.frame(prDes, sample100Dat))
+
+#write new function to format data in long format
+#for t test
+tTest <- function(z) {
+  zz <- t.test(gExp ~ gType, z)
+  data.frame(type = "t", pVal = as.numeric(round(zz$p.value,4)))
+}
+
+#for Wilcoxon test
+wilTest <- function(z) {
+  #not sure if suppressing warnings is the way to go but the error messages are annoying
+  suppressWarnings(zz <- wilcox.test(gExp ~ gType, z))
+  data.frame(type = "wil", pVal = as.numeric(round(zz$p.value,4)))
+}
+
+#for KS test
+ksTest <- function(z) {
+  suppressWarnings(zz <- ks.test(z[z$gType == "wt", "gExp"], z[z$gType == "NrlKO", "gExp"]))
+  data.frame(type = "ks", pVal = as.numeric(round(zz$p.value,4)))
+}
+
+pvalDat <- rbind(ddply(sample100Dat, ~ gene, tTest), ddply(sample100Dat, ~ gene, wilTest), ddply(sample100Dat, ~ gene, ksTest))
+
+
+p <- ggplot(pvalDat, aes(gene, pVal, colour = type)) + geom_point()
+p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))
+p
+```
+
+Not really sure what I am supposed to get out of this, seems chaotic. Lets try the log scale like suggested:
+
+```{r}
+(p <- p+ scale_y_log10())
+```
+
+A little better, I guess I see that low p-values seems to occur together.
+
+Let's try sorting the data by mean pvalue:
+```{r}
+#for reordering
+pvalDatMean <- ddply(pvalDat, ~gene, summarize, mean = mean(pVal))
+pvalDatMean <- pvalueDatMean[order(pvalDatMean$mean), ]
+
+p <- ggplot(pvalDat, aes(x = reorder(gene, pVal), y = pVal, group = type, colour = type)) + geom_point()
+p <- p + theme(axis.text.x=element_text(angle=90, hjust=1))+ scale_y_log10()
+p
+```
+The p-values mostly follow the same trend (near the high and low p-values) but seem to be dispersed in the inner regions of the plot.
+
+Now lets investigate what happens when you hard thresholding on p = 0.05:
+```{r}
+threshDat <- ddply(pvalDat, ~ gene + type, summarize, sig = pVal > 0.95)
+sigDat <- ddply(threshDat, ~ gene, summarize, count = length(which(sig)))
+```
+
+Significant 0 times:
+```{r}
+length(which(sigDat$count == 0))
+```
+
+Significant 1 times:
+```{r}
+length(which(sigDat$count == 1))
+```
+
+Significant 2 times:
+```{r}
+length(which(sigDat$count == 2))
+```
+
+Significant 3 times:
+```{r}
+length(which(sigDat$count == 3))
+```
+
+### Time limiting study
+
+Plotting how long each test takes. Start by generating samples
+```{r}
+geneSample5 <- row.names(prDat)[sample(1:nrow(prDat), 5)]
+sample5Dat <- subset(prDat, rownames(prDat) %in% geneSample5)
+sample5Dat <- data.frame(gExp = as.vector(t(as.matrix(sample5Dat))), gene = factor(rep(rownames(sample5Dat), each = ncol(sample5Dat)), levels = geneSample5))
+sample5Dat <- suppressWarnings(data.frame(prDes, sample5Dat))
+
+geneSample10 <- row.names(prDat)[sample(1:nrow(prDat), 10)]
+sample10Dat <- subset(prDat, rownames(prDat) %in% geneSample10)
+sample10Dat <- data.frame(gExp = as.vector(t(as.matrix(sample10Dat))), gene = factor(rep(rownames(sample10Dat), each = ncol(sample10Dat)), levels = geneSample10))
+sample10Dat <- suppressWarnings(data.frame(prDes, sample10Dat))
+
+geneSample50 <- row.names(prDat)[sample(1:nrow(prDat), 50)]
+sample50Dat <- subset(prDat, rownames(prDat) %in% geneSample50)
+sample50Dat <- data.frame(gExp = as.vector(t(as.matrix(sample50Dat))), gene = factor(rep(rownames(sample50Dat), each = ncol(sample50Dat)), levels = geneSample50))
+sample50Dat <- suppressWarnings(data.frame(prDes, sample50Dat))
+
+geneSample500 <- row.names(prDat)[sample(1:nrow(prDat), 500)]
+sample500Dat <- subset(prDat, rownames(prDat) %in% geneSample500)
+sample500Dat <- data.frame(gExp = as.vector(t(as.matrix(sample500Dat))), gene = factor(rep(rownames(sample500Dat), each = ncol(sample500Dat)), levels = geneSample500))
+sample500Dat <- suppressWarnings(data.frame(prDes, sample500Dat))
+```
+
+Run Tests:
+```{r}
+
+#for ease of returning time
+getTime <- function(expr){
+  result <- system.time(expr)
+  return(result[1])
+}
+
+system.time(ddply(sample5Dat, ~ gene, tTest))[1]
+
+timeTTest <- data.frame( time = c(getTime(ddply(sample5Dat, ~ gene, tTest)),
+getTime(ddply(sample10Dat, ~ gene, tTest)),
+getTime(ddply(sample50Dat, ~ gene, tTest)),
+getTime(ddply(sample100Dat, ~ gene, tTest)),
+getTime(ddply(sample500Dat, ~ gene, tTest))), testNum = c(5,10,50,100,500), type = "tTest")
+
+timeWilTest <- data.frame( time = c(getTime(ddply(sample5Dat, ~ gene, wilTest)),
+getTime(ddply(sample10Dat, ~ gene, wilTest)),
+getTime(ddply(sample50Dat, ~ gene, wilTest)),
+getTime(ddply(sample100Dat, ~ gene, wilTest)),
+getTime(ddply(sample500Dat, ~ gene, wilTest))), testNum = c(5,10,50,100,500), type = "wilTest")
+
+timeKSTest <- data.frame( time = c(getTime(ddply(sample5Dat, ~ gene, ksTest)),
+getTime(ddply(sample10Dat, ~ gene, ksTest)),
+getTime(ddply(sample50Dat, ~ gene, ksTest)),
+getTime(ddply(sample100Dat, ~ gene, ksTest)),
+getTime(ddply(sample500Dat, ~ gene, ksTest))), testNum = c(5,10,50,100,500), type = "ksTest")
+
+timeDat <- rbind(timeTTest, timeWilTest, timeKSTest)
+```
+
+According to this plot it scales linearly, but it is already reaching >9 seconds for 500 samples for some tests.
+
+Plot the results:
+```{r}
+p <- ggplot(timeDat, aes(testNum, time, group = type, colour = type)) + geom_line()
+p
+```
