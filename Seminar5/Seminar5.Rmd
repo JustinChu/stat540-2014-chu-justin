@@ -1,0 +1,10 @@
+Stat 540 Seminar 5
+========================================================
+
+Start by loading data/libraries:
+```{r}
+library(ggplot2)
+prDat <- read.table("../GSE4051_data.tsv")
+prDes <- read.table("../GSE4051_design.tsv", header = TRUE)
+```
+
