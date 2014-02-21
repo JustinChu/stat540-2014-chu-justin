@@ -1,38 +1,41 @@
-Stat 540 Seminar 5
+Stat 540 Seminar 6
 ========================================================
 
-To explore linear models on gene expression data.
+To explore linear models on gene expression data, with limma (higher volume).
 
 Start by loading data/libraries:
 ```{r}
+library(limma)
 library(lattice)
-library(plyr)
+library(ggplot2)
 prDat <- read.table("../GSE4051_data.tsv")
 prDes <- read.table("../GSE4051_design.tsv", header = TRUE)
 ```
 
-### Functions we were asked to make
-
+Simulate 100 genes
 ```{r}
-prepareData <- function(x)
-  {
-  miniDat <- subset(prDat, rownames(prDat) %in% x)
-  miniDat <- data.frame(gExp = as.vector(t(as.matrix(miniDat))), gene = factor(rep(rownames(miniDat), each = ncol(miniDat)), levels = x))
-  miniDat <- data.frame(prDes, miniDat)
-  miniDat$sidNum <- as.numeric(miniDat$sidNum)
-  miniDat$devStage <- factor(miniDat$devStage, levels=unique(miniDat$devStage)) #to make plotting in order
-  return(miniDat)
-  }
+m <- 1000
+n <- 3
+x <- matrix(rnorm(m * n), nrow = m)
+obsVars <- apply(x, 1, var)
+summary(obsVars)
+mean(obsVars < 1/3)
+densityplot(~obsVars, n = 200)
 ```
 
+## Fit a linear model: explain gene expression in the wild type mice as a function of developmental stage (one-way ANOVA)
+
 ```{r}
-makeStripplot <-  function(x, pch = 1, cex = 1)
-  {
-  return(stripplot(gExp ~ devStage | gene, x,
-  group = gType, jitter.data = TRUE,
-  auto.key = TRUE, type = c('p', 'a'),
-  grid = TRUE, pch = pch, cex = cex))
-  }
+wtDat <- subset(prDat, select = prDes$gType == "wt")
+str(wtDat, max.level = 0)
+wtDesMat <- model.matrix(~devStage, wtDes)
+str(wtDesMat)
+wtFit <- lmFit(wtDat, wtDesMat)
+wtEbFit <- eBayes(wtFit)
+topTable(wtEbFit)
+topTable(wtEbFit, coef = 2:5)
+colnames(coef(wtEbFit))
+(dsHits <- topTable(wtEbFit, coef = grep("devStage", colnames(coef(wtEbFit)))))
 ```
 
 ## Write a function to prepare a mini-dataset for a small number of genes
